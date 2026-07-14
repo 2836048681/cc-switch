@@ -1254,6 +1254,8 @@
     "authJsonHint": "Shared provider API key; each [model.*] may also define api_key or env_key",
     "profileToml": "Grok Profile (TOML)",
     "profileTomlHint": "Manages endpoints, models, subagents and model.* while preserving other global Grok settings",
+    "defaultModelPlaceholder": "e.g. grok-4.5",
+    "defaultModelHint": "The model used by Grok Build by default. Change it anytime, or leave it blank to preserve the current Profile default.",
     "advancedSectionHint": "Includes the native Grok API backend, User-Agent and local proxy request overrides.",
     "editGlobalConfig": "Edit Grok Global Config",
     "globalConfigTitle": "Grok Build global config.toml",

@@ -1254,6 +1254,8 @@
     "authJsonHint": "プロバイダー共通 API Key。各 [model.*] に api_key または env_key も設定できます",
     "profileToml": "Grok Profile (TOML)",
     "profileTomlHint": "endpoints、models、subagents、model.* を管理し、その他の Grok グローバル設定は保持します",
+    "defaultModelPlaceholder": "例: grok-4.5",
+    "defaultModelHint": "Grok Build がデフォルトで使用するモデルです。いつでも変更でき、空欄の場合は現在の Profile のデフォルトを保持します。",
     "advancedSectionHint": "Grok ネイティブ API Backend、User-Agent、ローカルプロキシ上書きを含みます。",
     "editGlobalConfig": "Grok グローバル設定を編集",
     "globalConfigTitle": "Grok Build グローバル config.toml",
