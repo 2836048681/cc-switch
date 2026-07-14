@@ -49,6 +49,7 @@ interface EndpointCandidate {
 }
 
 interface CodexFormFieldsProps {
+  appId?: "codex" | "grok";
   providerId?: string;
   // API Key
   codexApiKey: string;
@@ -155,6 +156,7 @@ function catalogRowsMatchModels(
 }
 
 export function CodexFormFields({
+  appId = "codex",
   providerId,
   codexApiKey,
   onApiKeyChange,
@@ -560,10 +562,15 @@ export function CodexFormFields({
           </CollapsibleTrigger>
           {!advancedExpanded && (
             <p className="mt-1 ml-1 text-xs text-muted-foreground">
-              {t("codexConfig.advancedSectionHint", {
-                defaultValue:
-                  "包含上游格式、模型映射、思考能力与自定义 User-Agent。使用 Chat Completions 协议的供应商需开启路由接管才能使用。",
-              })}
+              {appId === "grok"
+                ? t("grokConfig.advancedSectionHint", {
+                    defaultValue:
+                      "包含 Grok 原生 API Backend、User-Agent 与本地代理请求覆盖。",
+                  })
+                : t("codexConfig.advancedSectionHint", {
+                    defaultValue:
+                      "包含上游格式、模型映射、思考能力与自定义 User-Agent。使用 Chat Completions 协议的供应商需开启路由接管才能使用。",
+                  })}
             </p>
           )}
           <CollapsibleContent className="space-y-3 pt-3">
@@ -600,11 +607,13 @@ export function CodexFormFields({
                           defaultValue: "Responses（原生）",
                         })}
                       </SelectItem>
-                      <SelectItem value="anthropic">
-                        {t("codexConfig.upstreamFormatAnthropic", {
-                          defaultValue: "Anthropic Messages（需开启路由）",
-                        })}
-                      </SelectItem>
+                      {appId === "codex" && (
+                        <SelectItem value="anthropic">
+                          {t("codexConfig.upstreamFormatAnthropic", {
+                            defaultValue: "Anthropic Messages（需开启路由）",
+                          })}
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <p className="text-xs leading-relaxed text-muted-foreground">
@@ -615,7 +624,7 @@ export function CodexFormFields({
                   </p>
                 </div>
 
-                {isAnthropicFormat && (
+                {appId === "codex" && isAnthropicFormat && (
                   <div className="space-y-1.5">
                     <FormLabel htmlFor="codex-anthropic-auth-field">
                       {t("codexConfig.anthropicAuthFieldLabel", {
@@ -657,7 +666,7 @@ export function CodexFormFields({
                   </div>
                 )}
 
-                {isAnthropicFormat && (
+                {appId === "codex" && isAnthropicFormat && (
                   <div className="flex items-center justify-between gap-4 border-t border-border-default pt-3">
                     <div className="space-y-1">
                       <FormLabel>
@@ -682,7 +691,7 @@ export function CodexFormFields({
                   </div>
                 )}
 
-                {isAnthropicFormat && (
+                {appId === "codex" && isAnthropicFormat && (
                   <div className="space-y-1.5 border-t border-border-default pt-3">
                     <FormLabel htmlFor="codex-anthropic-max-output-tokens">
                       {t("codexConfig.maxOutputTokensLabel", {
@@ -1007,7 +1016,7 @@ export function CodexFormFields({
       {/* 端点测速弹窗 - Codex */}
       {shouldShowSpeedTest && isEndpointModalOpen && (
         <EndpointSpeedTest
-          appId="codex"
+          appId={appId}
           providerId={providerId}
           value={codexBaseUrl}
           onChange={onBaseUrlChange}
