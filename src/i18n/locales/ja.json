@@ -1258,6 +1258,8 @@
     "defaultModelHint": "Grok Build がデフォルトで使用するモデルです。いつでも変更でき、空欄の場合は現在の Profile のデフォルトを保持します。",
     "advancedSectionHint": "Grok ネイティブ API Backend、User-Agent、ローカルプロキシ上書きを含みます。",
     "editGlobalConfig": "Grok グローバル設定を編集",
+    "addToGlobalConfig": "グローバル設定に追加",
+    "addedToGlobalConfig": "現在の Grok Profile をグローバル設定に追加しました",
     "globalConfigTitle": "Grok Build グローバル config.toml",
     "globalConfigHint": "ローカルの実設定を編集します。プロバイダー切替では endpoints、models、subagents、model.* のみ置換し、その他の設定は保持され、保存時に自動バックアップされます。",
     "globalConfigSaved": "Grok グローバル設定を保存しました",

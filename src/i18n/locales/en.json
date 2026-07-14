@@ -1258,6 +1258,8 @@
     "defaultModelHint": "The model used by Grok Build by default. Change it anytime, or leave it blank to preserve the current Profile default.",
     "advancedSectionHint": "Includes the native Grok API backend, User-Agent and local proxy request overrides.",
     "editGlobalConfig": "Edit Grok Global Config",
+    "addToGlobalConfig": "Add to Global Config",
+    "addedToGlobalConfig": "The current Grok Profile was added to the global config",
     "globalConfigTitle": "Grok Build global config.toml",
     "globalConfigHint": "Edits the live local config. Provider switches only replace endpoints, models, subagents and model.*; other settings are preserved and every save is backed up.",
     "globalConfigSaved": "Grok global config saved",
