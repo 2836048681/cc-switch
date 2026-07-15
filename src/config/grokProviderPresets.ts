@@ -17,15 +17,12 @@ models_base_url = ${quote(baseUrl)}
 default = ${quote(model)}
 web_search = ${quote(model)}
 
-[subagents]
-default_model = ${quote(model)}
-
 [model.${quote(model)}]
 model = ${quote(model)}
 base_url = ${quote(baseUrl)}
 api_backend = ${quote(backend)}
 supports_backend_search = true
-context_window = 500000
+context_window = 1000000
 `;
 }
 

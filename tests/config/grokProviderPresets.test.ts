@@ -28,8 +28,9 @@ describe("Grok Build provider presets", () => {
     const parsed = parseToml(responses?.config ?? "") as any;
     expect(parsed.models.default).toBe("grok-4.5");
     expect(parsed.models.web_search).toBe("grok-4.5");
-    expect(parsed.subagents.default_model).toBe("grok-4.5");
+    expect(parsed.subagents).toBeUndefined();
     expect(parsed.model["grok-4.5"].supports_backend_search).toBe(true);
+    expect(parsed.model["grok-4.5"].context_window).toBe(1_000_000);
   });
 
   it("updates Grok endpoint and every model backend without Codex wire_api", () => {
@@ -43,6 +44,8 @@ describe("Grok Build provider presets", () => {
     );
     const parsed = parseToml(updated) as any;
     expect(parsed.endpoints.models_base_url).toBe("https://new.example/v1");
+    expect(parsed.model["first.model"].base_url).toBe("https://new.example/v1");
+    expect(parsed.model.second.base_url).toBe("https://new.example/v1");
     expect(parsed.model["first.model"].api_backend).toBe("chat_completions");
     expect(parsed.model.second.api_backend).toBe("chat_completions");
     expect(updated).not.toContain("wire_api");

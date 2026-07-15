@@ -83,12 +83,39 @@ function setSectionString(
 }
 
 export function setGrokBaseUrl(config: string, baseUrl: string): string {
-  return setSectionString(
+  const nextBaseUrl = baseUrl.trim();
+  const withEndpoint = setSectionString(
     config,
     "endpoints",
     "models_base_url",
-    baseUrl.trim(),
+    nextBaseUrl,
   );
+  const lines = withEndpoint.replace(/\r\n/g, "\n").split("\n");
+  const starts: number[] = [];
+  lines.forEach((line, index) => {
+    if (/^\s*\[model\.[^\]]+\]\s*$/.test(line)) starts.push(index);
+  });
+  for (let offset = starts.length - 1; offset >= 0; offset -= 1) {
+    const start = starts[offset];
+    const nextSection = lines.findIndex(
+      (line, index) => index > start && /^\s*\[[^\]]+\]\s*$/.test(line),
+    );
+    const end = nextSection < 0 ? lines.length : nextSection;
+    const keyIndex = lines
+      .slice(start + 1, end)
+      .findIndex((line) => /^\s*base_url\s*=/.test(line));
+    if (keyIndex >= 0) {
+      if (nextBaseUrl) {
+        lines[start + 1 + keyIndex] =
+          `base_url = ${JSON.stringify(nextBaseUrl)}`;
+      } else {
+        lines.splice(start + 1 + keyIndex, 1);
+      }
+    } else if (nextBaseUrl) {
+      lines.splice(start + 1, 0, `base_url = ${JSON.stringify(nextBaseUrl)}`);
+    }
+  }
+  return `${lines.join("\n").trimEnd()}\n`;
 }
 
 export function setGrokApiBackend(
