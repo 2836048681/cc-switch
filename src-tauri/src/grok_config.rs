@@ -1,7 +1,7 @@
 //! Grok Build 配置文件管理。
 //!
 //! Grok Build 将供应商连接信息保存在 `config.toml` 的 `[endpoints]`、
-//! `[models]`、`[subagents]` 与 `[model.*]` 中。CC Switch 只重写这些
+//! `[models]`、`[subagents.models]` 与 `[model.*]` 中。CC Switch 只重写这些
 //! 供应商字段，UI、MCP、遥测等其它配置始终原样保留。
 
 use crate::config::{get_home_dir, write_text_file};
@@ -214,15 +214,21 @@ fn merge_profile_doc(live_doc: &mut DocumentMut, profile_doc: &DocumentMut) {
     for (section, keys) in [
         ("endpoints", &["models_base_url"][..]),
         ("models", &["default", "web_search"][..]),
-        ("subagents", &["default_model"][..]),
     ] {
         for key in keys {
             set_owned_key(live_doc, profile_doc, section, key);
         }
     }
-    live_doc.as_table_mut().remove("model");
-    if let Some(models) = profile_doc.get("model") {
-        live_doc["model"] = models.clone();
+    if let Some(routes) = profile_doc
+        .get("subagents")
+        .and_then(|item| item.get("models"))
+    {
+        live_doc["subagents"]["models"] = routes.clone();
+    }
+    if let Some(models) = profile_doc.get("model").and_then(Item::as_table) {
+        for (name, model) in models {
+            live_doc["model"][name] = model.clone();
+        }
     }
 }
 
@@ -249,6 +255,9 @@ pub fn merge_grok_profile_config_text(
             format!("Invalid Grok Profile TOML: {e}"),
         )
     })?;
+    if profile_text.trim().is_empty() {
+        return use_official_auth_config_text(existing_text);
+    }
     selected_model_table(&profile_doc).ok_or_else(|| {
         AppError::localized(
             "provider.grok.model.missing",
@@ -267,7 +276,8 @@ pub fn merge_grok_profile_into_live(profile_text: &str) -> Result<(), AppError> 
     write_grok_config_text(&next)
 }
 
-/// 删除所有供应商拥有的字段，让 Grok 回退到 `grok login` 管理的官方账号。
+/// 清除第三方端点与活动模型选择，让 Grok 回退到 `grok login` 管理的官方账号。
+/// 保留 `[model.*]` 定义，避免切换账号时破坏用户手工维护的模型目录。
 pub fn use_official_auth_config_text(text: &str) -> Result<String, AppError> {
     let mut doc = if text.trim().is_empty() {
         DocumentMut::new()
@@ -283,7 +293,6 @@ pub fn use_official_auth_config_text(text: &str) -> Result<String, AppError> {
     for (section, keys) in [
         ("endpoints", &["models_base_url"][..]),
         ("models", &["default", "web_search"][..]),
-        ("subagents", &["default_model"][..]),
     ] {
         if let Some(table) = doc.get_mut(section).and_then(Item::as_table_like_mut) {
             for key in keys {
@@ -291,7 +300,6 @@ pub fn use_official_auth_config_text(text: &str) -> Result<String, AppError> {
             }
         }
     }
-    doc.as_table_mut().remove("model");
     Ok(doc.to_string())
 }
 
@@ -324,7 +332,7 @@ pub fn apply_privacy_protection_live() -> Result<String, AppError> {
 /// 将供应商 Profile patch 到一份 Grok 配置文本中。
 ///
 /// 修改 `[endpoints].models_base_url`、`[models].default/web_search`、
-/// `[subagents].default_model` 与全部 `[model.*]`；其它段落原样保留。
+/// `[subagents.models]` 与全部 `[model.*]`；其它段落原样保留。
 /// 调用者可覆盖 `base_url`、`api_key` 与 `api_backend`，用于本地代理接管。
 pub fn patch_config_text_for_provider(
     existing_text: &str,
@@ -345,6 +353,13 @@ pub fn patch_config_text_for_provider(
         })?
     };
     if provider.category.as_deref() == Some("official") {
+        if base_url_override.is_some() || api_key_override.is_some() {
+            return Err(AppError::localized(
+                "provider.grok.official_proxy_unsupported",
+                "Grok 官方 OAuth 账号不支持代理接管，请先切换到 API 供应商",
+                "Grok official OAuth does not support proxy takeover; switch to an API provider first",
+            ));
+        }
         return use_official_auth_config_text(existing_text);
     }
 
@@ -484,7 +499,7 @@ pub fn settings_from_config_text(text: &str) -> Result<Value, AppError> {
     for (section, keys) in [
         ("endpoints", &["models_base_url"][..]),
         ("models", &["default", "web_search"][..]),
-        ("subagents", &["default_model"][..]),
+        ("subagents", &["models"][..]),
     ] {
         for key in keys {
             if let Some(item) = doc.get(section).and_then(|item| item.get(key)) {
@@ -590,11 +605,7 @@ pub fn cleanup_takeover_config_text(text: &str) -> Result<String, AppError> {
                 models.remove(name);
             }
         }
-        for (section, key) in [
-            ("models", "default"),
-            ("models", "web_search"),
-            ("subagents", "default_model"),
-        ] {
+        for (section, key) in [("models", "default"), ("models", "web_search")] {
             let selected_is_managed = doc
                 .get(section)
                 .and_then(|item| item.get(key))
@@ -605,6 +616,24 @@ pub fn cleanup_takeover_config_text(text: &str) -> Result<String, AppError> {
                 if let Some(table) = doc.get_mut(section).and_then(Item::as_table_like_mut) {
                     table.remove(key);
                 }
+            }
+        }
+        if let Some(routes) = doc
+            .get_mut("subagents")
+            .and_then(|item| item.get_mut("models"))
+            .and_then(Item::as_table_like_mut)
+        {
+            let stale_routes = routes
+                .iter()
+                .filter_map(|(name, item)| {
+                    item.as_value()
+                        .and_then(|value| value.as_str())
+                        .is_some_and(|model| managed_names.iter().any(|managed| managed == model))
+                        .then(|| name.to_string())
+                })
+                .collect::<Vec<_>>();
+            for name in stale_routes {
+                routes.remove(&name);
             }
         }
         if let Some(endpoints) = doc.get_mut("endpoints").and_then(Item::as_table_like_mut) {
@@ -632,8 +661,9 @@ models_base_url = "https://api.x.ai/v1"
 default = "fast"
 web_search = "search"
 
-[subagents]
-default_model = "fast"
+[subagents.models]
+explore = "fast"
+plan = "search"
 
 [model.fast]
 model = "grok-4.5"
@@ -659,9 +689,21 @@ supports_backend_search = true
         provider
     }
 
+    fn official_provider() -> Provider {
+        let mut provider = Provider::with_id(
+            "official".to_string(),
+            "Grok Official".to_string(),
+            json!({ "auth": {}, "config": "" }),
+            None,
+        );
+        provider.category = Some("official".to_string());
+        provider
+    }
+
     #[test]
     fn patch_replaces_provider_sections_and_preserves_unrelated_config() {
-        let existing = r#"[hints]
+        let existing = r#"# keep this user comment
+[hints]
 project_picker_disabled = true
 
 [models]
@@ -685,12 +727,14 @@ url = "https://example.test/mcp"
 
         assert_eq!(doc["models"]["default"].as_str(), Some("fast"));
         assert_eq!(doc["models"]["web_search"].as_str(), Some("search"));
-        assert_eq!(doc["subagents"]["default_model"].as_str(), Some("fast"));
+        assert_eq!(doc["subagents"]["models"]["explore"].as_str(), Some("fast"));
+        assert_eq!(doc["subagents"]["models"]["plan"].as_str(), Some("search"));
         assert_eq!(
             doc["models"]["default_reasoning_effort"].as_str(),
             Some("high")
         );
-        assert!(doc["model"].get("cli").is_none());
+        assert!(doc["model"]["cli"].is_table());
+        assert!(patched.contains("# keep this user comment"));
         assert_eq!(doc["model"]["fast"]["api_key"].as_str(), Some("xai-key"));
         assert_eq!(
             doc["endpoints"]["models_base_url"].as_str(),
@@ -727,8 +771,26 @@ model = "old-model"
             Some("high")
         );
         assert_eq!(doc["models"]["default"].as_str(), Some("fast"));
-        assert!(doc["model"].get("old").is_none());
+        assert!(doc["model"]["old"].is_table());
         assert!(doc["model"]["fast"].is_table());
+    }
+
+    #[test]
+    fn empty_official_profile_restores_builtin_selection_without_deleting_models() {
+        let existing = r#"[models]
+default = "custom"
+
+[model.custom]
+model = "grok-4.5"
+api_key = "secret"
+"#;
+        let merged = merge_grok_profile_config_text(existing, "").expect("merge official");
+        let doc = merged
+            .parse::<DocumentMut>()
+            .expect("parse official config");
+
+        assert!(doc["models"].get("default").is_none());
+        assert!(doc["model"]["custom"].is_table());
     }
 
     #[test]
@@ -741,8 +803,8 @@ models_base_url = "https://api.example/v1"
 default = "cli"
 web_search = "search"
 
-[subagents]
-default_model = "cli"
+[subagents.models]
+explore = "cli"
 
 [model.cli]
 model = "grok-4.5"
@@ -767,6 +829,10 @@ supports_backend_search = true
             .expect("parse provider config");
         assert_eq!(config_doc["models"]["default"].as_str(), Some("cli"));
         assert_eq!(config_doc["models"]["web_search"].as_str(), Some("search"));
+        assert_eq!(
+            config_doc["subagents"]["models"]["explore"].as_str(),
+            Some("cli")
+        );
         assert!(config_doc["model"]["cli"].is_table());
         assert!(config_doc["model"]["search"].is_table());
         assert!(!config.contains("secret"));
@@ -802,6 +868,20 @@ supports_backend_search = true
     }
 
     #[test]
+    fn official_oauth_rejects_proxy_takeover() {
+        let error = patch_config_text_for_provider(
+            "[features]\ntelemetry = false\n",
+            &official_provider(),
+            Some("http://127.0.0.1:15721/grok/v1"),
+            Some(GROK_PROXY_TOKEN_PLACEHOLDER),
+            None,
+        )
+        .expect_err("official OAuth must not bypass takeover");
+
+        assert!(error.to_string().contains("official OAuth"));
+    }
+
+    #[test]
     fn official_auth_removes_only_provider_owned_fields() {
         let cleaned = use_official_auth_config_text(
             r#"[features]
@@ -812,6 +892,9 @@ default = "custom"
 web_search = "custom"
 default_reasoning_effort = "high"
 
+[subagents.models]
+explore = "grok-build"
+
 [model.custom]
 model = "grok-4.5"
 api_key = "secret"
@@ -821,11 +904,15 @@ api_key = "secret"
         let doc = cleaned
             .parse::<DocumentMut>()
             .expect("parse official config");
-        assert!(doc.get("model").is_none());
+        assert!(doc["model"]["custom"].is_table());
         assert!(doc["models"].get("default").is_none());
         assert_eq!(
             doc["models"]["default_reasoning_effort"].as_str(),
             Some("high")
+        );
+        assert_eq!(
+            doc["subagents"]["models"]["explore"].as_str(),
+            Some("grok-build")
         );
         assert_eq!(doc["features"]["telemetry"].as_bool(), Some(false));
     }
