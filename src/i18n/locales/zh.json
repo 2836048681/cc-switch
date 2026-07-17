@@ -1264,7 +1264,15 @@
     "globalConfigHint": "这里编辑本机实际配置。供应商切换只替换 endpoints、models、subagents 与 model.*，其它设置会保留；每次保存都会自动备份。",
     "globalConfigSaved": "Grok 全局配置已保存",
     "applyPrivacy": "应用隐私保护",
-    "privacyApplied": "隐私保护配置已写入"
+    "privacyApplied": "隐私保护配置已写入",
+    "subagentRoutesTitle": "子代理模型路由",
+    "subagentRoutesHint": "可为每个子代理角色指定本供应商或其它已保存 Grok 供应商中的模型。跨供应商路由会在切换时写入 live config，不会覆盖用户自建模型。",
+    "subagentRoutesEmpty": "未配置显式路由时，仍可使用 Profile TOML 中的 [subagents.models]。",
+    "subagentRouteAdd": "添加路由",
+    "subagentRouteLocal": "当前供应商",
+    "subagentRolePlaceholder": "角色，如 explore",
+    "subagentModelPlaceholder": "选择模型",
+    "subagentRouteInvalid": "子代理路由无效：{{message}}"
   },
   "codexConfig": {
     "authJson": "auth.json (JSON) *",

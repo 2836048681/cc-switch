@@ -1264,7 +1264,15 @@
     "globalConfigHint": "ローカルの実設定を編集します。プロバイダー切替では endpoints、models、subagents、model.* のみ置換し、その他の設定は保持され、保存時に自動バックアップされます。",
     "globalConfigSaved": "Grok グローバル設定を保存しました",
     "applyPrivacy": "プライバシー保護を適用",
-    "privacyApplied": "プライバシー保護設定を適用しました"
+    "privacyApplied": "プライバシー保護設定を適用しました",
+    "subagentRoutesTitle": "サブエージェントモデル経路",
+    "subagentRoutesHint": "各サブエージェント役割に、現在のプロバイダーまたは他の保存済み Grok プロバイダーのモデルを割り当てできます。クロスプロバイダー経路は切り替え時に live config へ実体化され、ユーザー所有モデルは上書きしません。",
+    "subagentRoutesEmpty": "明示的な経路がない場合、Profile TOML の [subagents.models] が引き続き使われます。",
+    "subagentRouteAdd": "経路を追加",
+    "subagentRouteLocal": "現在のプロバイダー",
+    "subagentRolePlaceholder": "役割（例: explore）",
+    "subagentModelPlaceholder": "モデルを選択",
+    "subagentRouteInvalid": "サブエージェント経路が無効です: {{message}}"
   },
   "codexConfig": {
     "authJson": "auth.json (JSON) *",

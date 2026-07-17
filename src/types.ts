@@ -125,6 +125,14 @@ export interface ClaudeDesktopModelRoute {
   supports1m?: boolean;
 }
 
+/** Grok Build 子代理角色 → 模型路由（可指向其它 Grok 供应商 Profile）。 */
+export interface GrokSubagentRoute {
+  /** 源供应商 ID；缺省或等于当前供应商时表示同源。 */
+  providerId?: string;
+  /** 源 Profile 中的 `[model.<id>]` 表名。 */
+  modelId: string;
+}
+
 export type CodexChatThinkingParam =
   | "none"
   | "thinking"
@@ -178,6 +186,8 @@ export interface ProviderMeta {
   claudeDesktopMode?: "direct" | "proxy";
   // Claude Desktop 本地路由模式：Claude-safe route -> upstream model
   claudeDesktopModelRoutes?: Record<string, ClaudeDesktopModelRoute>;
+  // Grok Build 子代理跨供应商路由：role -> provider+model
+  grokSubagentRoutes?: Record<string, GrokSubagentRoute>;
   // 用量查询脚本配置
   usage_script?: UsageScript;
   // 请求地址管理：测速后自动选择最佳端点

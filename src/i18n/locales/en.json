@@ -1264,7 +1264,15 @@
     "globalConfigHint": "Edits the live local config. Provider switches only replace endpoints, models, subagents and model.*; other settings are preserved and every save is backed up.",
     "globalConfigSaved": "Grok global config saved",
     "applyPrivacy": "Apply Privacy Protection",
-    "privacyApplied": "Privacy protection settings applied"
+    "privacyApplied": "Privacy protection settings applied",
+    "subagentRoutesTitle": "Subagent model routes",
+    "subagentRoutesHint": "Assign each subagent role a model from this provider or another saved Grok provider profile. Cross-provider routes are materialized into the live config on switch without overwriting user-owned models.",
+    "subagentRoutesEmpty": "Without explicit routes, Profile TOML [subagents.models] still applies.",
+    "subagentRouteAdd": "Add route",
+    "subagentRouteLocal": "Current provider",
+    "subagentRolePlaceholder": "Role, e.g. explore",
+    "subagentModelPlaceholder": "Select model",
+    "subagentRouteInvalid": "Invalid subagent route: {{message}}"
   },
   "codexConfig": {
     "authJson": "auth.json (JSON) *",

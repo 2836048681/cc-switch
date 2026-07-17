@@ -396,6 +396,20 @@ impl LocalProxyRequestOverrides {
     }
 }
 
+/// Grok Build 子代理角色 → 模型路由（可指向其它 Grok 供应商 Profile 中的模型）。
+///
+/// 存于 `ProviderMeta`，不写入 live `config.toml` 的原始 profile 段；
+/// 写入 live 时由 `grok_config` 物化成 `[model.*]` + `[subagents.models]`。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GrokSubagentRoute {
+    /// 源供应商 ID。缺省或等于当前供应商时，表示使用本 Profile 内的模型。
+    #[serde(rename = "providerId", skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+    /// 源 Profile 中的 `[model.<id>]` 表名（非上游 model 字符串）。
+    #[serde(rename = "modelId")]
+    pub model_id: String,
+}
+
 /// 供应商元数据
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProviderMeta {
@@ -418,6 +432,13 @@ pub struct ProviderMeta {
         skip_serializing_if = "HashMap::is_empty"
     )]
     pub claude_desktop_model_routes: HashMap<String, ClaudeDesktopModelRoute>,
+    /// Grok Build 子代理跨供应商路由（role → provider+model）。
+    #[serde(
+        default,
+        rename = "grokSubagentRoutes",
+        skip_serializing_if = "HashMap::is_empty"
+    )]
+    pub grok_subagent_routes: HashMap<String, GrokSubagentRoute>,
     /// 用量查询脚本配置
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage_script: Option<UsageScript>,

@@ -23,6 +23,7 @@ import type {
   CodexChatReasoning,
   PromptCacheRoutingMode,
   ClaudeApiKeyField,
+  GrokSubagentRoute,
 } from "@/types";
 import {
   providerPresets,
@@ -73,8 +74,13 @@ import {
 import { isNonNegativeDecimalString } from "@/types/usage";
 import {
   extractGrokApiBackend,
+  mergeGrokSubagentRoutesForEdit,
+  normalizeGrokSubagentRoutesForSave,
   setGrokApiBackend,
+  setGrokSubagentModelsInConfig,
+  validateGrokSubagentRoutes,
 } from "@/utils/grokConfigUtils";
+import { GrokSubagentRoutesEditor } from "./GrokSubagentRoutesEditor";
 import { getCodexCustomTemplate } from "@/config/codexTemplates";
 import CodexConfigEditor from "./CodexConfigEditor";
 import { CommonConfigEditor } from "./CommonConfigEditor";
@@ -280,6 +286,18 @@ function ProviderFormFull({
     settingsData != null && settingsData.commonConfigConfirmed !== true;
   const isDarkMode = useDarkMode();
   const isCodexLike = appId === "codex" || appId === "grok";
+
+  // Grok 全部供应商列表：用于跨供应商子代理路由选择
+  const { data: grokProvidersMap } = useQuery({
+    queryKey: ["providers", "grok"],
+    queryFn: () => providersApi.getAll("grok"),
+    enabled: appId === "grok",
+    staleTime: 30_000,
+  });
+  const grokProvidersList = useMemo(
+    () => (grokProvidersMap ? Object.values(grokProvidersMap) : []),
+    [grokProvidersMap],
+  );
 
   const handleCommonConfigConfirm = async () => {
     try {
@@ -580,6 +598,36 @@ function ProviderFormFull({
     appId: appId === "grok" ? "grok" : "codex",
     initialData: isCodexLike ? initialData : undefined,
   });
+
+  const [grokSubagentRoutes, setGrokSubagentRoutes] = useState<
+    Record<string, GrokSubagentRoute>
+  >(() =>
+    appId === "grok"
+      ? mergeGrokSubagentRoutesForEdit(
+          typeof initialData?.settingsConfig?.config === "string"
+            ? initialData.settingsConfig.config
+            : "",
+          initialData?.meta?.grokSubagentRoutes,
+          providerId,
+        )
+      : {},
+  );
+
+  // 编辑加载 / 供应商切换后同步路由编辑态
+  useEffect(() => {
+    if (appId !== "grok") return;
+    setGrokSubagentRoutes(
+      mergeGrokSubagentRoutesForEdit(
+        typeof initialData?.settingsConfig?.config === "string"
+          ? initialData.settingsConfig.config
+          : "",
+        initialData?.meta?.grokSubagentRoutes,
+        providerId,
+      ),
+    );
+    // 仅在进入编辑或初始数据变化时重置，避免用户编辑过程中被覆盖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appId, providerId, initialData?.meta?.grokSubagentRoutes]);
 
   const initialGrokBackend =
     appId === "grok"
@@ -1051,6 +1099,25 @@ function ProviderFormFull({
     // 软性问题（业务约束，用户可选择仍要保存）
     const issues: string[] = [];
 
+    // Grok 跨供应商路由：无效引用必须阻断保存，禁止静默回退到同名本地模型
+    if (appId === "grok") {
+      const routeIssues = validateGrokSubagentRoutes(
+        grokSubagentRoutes,
+        providerId,
+        codexConfig,
+        grokProvidersList,
+      );
+      if (routeIssues.length > 0) {
+        toast.error(
+          t("grokConfig.subagentRouteInvalid", {
+            defaultValue: `子代理路由无效：${routeIssues[0].message}`,
+            message: routeIssues[0].message,
+          }),
+        );
+        return;
+      }
+    }
+
     // 模板变量未填：A 类（空值）
     if (appId === "claude" && templateValueEntries.length > 0) {
       const validation = validateTemplateValues();
@@ -1360,9 +1427,18 @@ function ProviderFormFull({
       }
     } else if (appId === "grok") {
       try {
+        const normalizedRoutes = normalizeGrokSubagentRoutesForSave(
+          grokSubagentRoutes,
+          providerId,
+        );
+        const configWithRoutes = setGrokSubagentModelsInConfig(
+          codexConfig ?? "",
+          normalizedRoutes,
+          providerId,
+        );
         settingsConfig = JSON.stringify({
           auth: JSON.parse(codexAuth || "{}"),
-          config: codexConfig ?? "",
+          config: configWithRoutes,
         });
       } catch {
         settingsConfig = values.settingsConfig.trim();
@@ -1600,10 +1676,27 @@ function ProviderFormFull({
         supportsFullUrl && category !== "official" && localIsFullUrl
           ? true
           : undefined,
+      grokSubagentRoutes:
+        appId === "grok"
+          ? (() => {
+              const normalized = normalizeGrokSubagentRoutesForSave(
+                grokSubagentRoutes,
+                providerId,
+              );
+              return Object.keys(normalized).length > 0
+                ? normalized
+                : undefined;
+            })()
+          : undefined,
     };
 
     if (!isCodexOauthProvider && "codexFastMode" in nextMeta) {
       delete nextMeta.codexFastMode;
+    }
+
+    if (appId === "grok" && !nextMeta.grokSubagentRoutes) {
+      // 显式清空：确保后端 meta 不再保留旧路由
+      delete nextMeta.grokSubagentRoutes;
     }
 
     payload.meta = nextMeta;
@@ -2389,6 +2482,15 @@ function ProviderFormFull({
           {/* 配置编辑器：Codex、Claude、Gemini 分别使用不同的编辑器 */}
           {isCodexLike ? (
             <>
+              {appId === "grok" && (
+                <GrokSubagentRoutesEditor
+                  activeProviderId={providerId}
+                  activeConfig={codexConfig}
+                  routes={grokSubagentRoutes}
+                  onChange={setGrokSubagentRoutes}
+                  allProviders={grokProvidersList}
+                />
+              )}
               <CodexConfigEditor
                 appId={appId === "grok" ? "grok" : "codex"}
                 showCodexFeatures={appId === "codex"}

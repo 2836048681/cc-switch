@@ -401,6 +401,12 @@ impl ProxyService {
             .ok_or_else(|| format!("{app_type:?} 当前供应商不存在，无法接管 Live 配置"))
     }
 
+    fn grok_providers_for_routes(&self) -> indexmap::IndexMap<String, Provider> {
+        self.db
+            .get_all_providers(AppType::Grok.as_str())
+            .unwrap_or_default()
+    }
+
     /// 设置 AppHandle（在应用初始化时调用）
     pub fn set_app_handle(&self, handle: tauri::AppHandle) {
         futures::executor::block_on(async {
@@ -1434,8 +1440,13 @@ impl ProxyService {
 
         if self.read_grok_live().is_ok() {
             let grok_provider = self.require_current_provider_for_app(&AppType::Grok)?;
-            crate::grok_config::write_grok_takeover_live(&grok_provider, &proxy_grok_base_url)
-                .map_err(|e| format!("写入 Grok 接管配置失败: {e}"))?;
+            let all = self.grok_providers_for_routes();
+            crate::grok_config::write_grok_takeover_live_with_routes(
+                &grok_provider,
+                &proxy_grok_base_url,
+                &all,
+            )
+            .map_err(|e| format!("写入 Grok 接管配置失败: {e}"))?;
             log::info!("Grok Live 配置已接管，代理地址: {proxy_grok_base_url}");
         }
 
@@ -1492,8 +1503,13 @@ impl ProxyService {
             AppType::Grok => {
                 self.read_grok_live()?;
                 let provider = self.require_current_provider_for_app(&AppType::Grok)?;
-                crate::grok_config::write_grok_takeover_live(&provider, &proxy_grok_base_url)
-                    .map_err(|e| format!("写入 Grok 接管配置失败: {e}"))?;
+                let all = self.grok_providers_for_routes();
+                crate::grok_config::write_grok_takeover_live_with_routes(
+                    &provider,
+                    &proxy_grok_base_url,
+                    &all,
+                )
+                .map_err(|e| format!("写入 Grok 接管配置失败: {e}"))?;
                 log::info!("Grok Live 配置已接管，代理地址: {proxy_grok_base_url}");
             }
             AppType::Gemini => {
@@ -1564,9 +1580,11 @@ impl ProxyService {
             }
             AppType::Grok if self.read_grok_live().is_ok() => {
                 if let Ok(Some(provider)) = self.get_current_provider_for_app(&AppType::Grok) {
-                    let _ = crate::grok_config::write_grok_takeover_live(
+                    let all = self.grok_providers_for_routes();
+                    let _ = crate::grok_config::write_grok_takeover_live_with_routes(
                         &provider,
                         &proxy_grok_base_url,
+                        &all,
                     );
                 }
             }
@@ -2236,9 +2254,11 @@ impl ProxyService {
                     })
                 })
                 .unwrap_or_default();
-            let patched = crate::grok_config::patch_config_text_for_provider(
+            let all = self.grok_providers_for_routes();
+            let patched = crate::grok_config::patch_config_text_for_provider_with_routes(
                 &existing_text,
                 provider,
+                &all,
                 None,
                 None,
                 None,
@@ -2346,8 +2366,13 @@ impl ProxyService {
             } else if live_taken_over && matches!(app_type_enum, AppType::Grok) {
                 let (proxy_url, _) = self.build_proxy_urls().await?;
                 let proxy_grok_base_url = format!("{}/grok/v1", proxy_url.trim_end_matches('/'));
-                crate::grok_config::write_grok_takeover_live(&provider, &proxy_grok_base_url)
-                    .map_err(|e| format!("更新 Grok 接管配置失败: {e}"))?;
+                let all = self.grok_providers_for_routes();
+                crate::grok_config::write_grok_takeover_live_with_routes(
+                    &provider,
+                    &proxy_grok_base_url,
+                    &all,
+                )
+                .map_err(|e| format!("更新 Grok 接管配置失败: {e}"))?;
             }
         }
 

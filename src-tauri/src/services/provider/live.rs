@@ -714,6 +714,17 @@ pub(crate) fn write_live_with_common_config(
         return Ok(());
     }
 
+    if matches!(app_type, AppType::Grok) {
+        let all_providers = db.get_all_providers(app_type.as_str()).unwrap_or_default();
+        // 确保 all_providers 含当前（可能尚未落库的）effective 配置
+        let mut providers = all_providers;
+        providers.insert(effective_provider.id.clone(), effective_provider.clone());
+        return crate::grok_config::write_grok_provider_live_with_routes(
+            &effective_provider,
+            &providers,
+        );
+    }
+
     write_live_snapshot(app_type, &effective_provider)
 }
 
@@ -1053,6 +1064,9 @@ pub(crate) fn write_live_snapshot(app_type: &AppType, provider: &Provider) -> Re
             )?;
         }
         AppType::Grok => {
+            // 无 DB 上下文时使用空 provider map：已物化的跨供应商路由会从
+            // live 注册表安全复用；缺失源且无 live 条目时返回明确错误。
+            // 正常切换走 write_live_with_common_config 的 Grok 专用分支。
             crate::grok_config::write_grok_provider_live(provider)?;
         }
         AppType::Gemini => {
